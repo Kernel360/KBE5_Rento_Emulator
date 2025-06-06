@@ -94,6 +94,11 @@ public class GPSEmulator {
         );
     }
 
+    public void startBatchSendMode(String filePath) throws Exception {
+        loadGPSData(filePath); // 파일 전체 읽기
+        sendAllGpsDataInBatches(); // 한 번에 8만 개씩 쏘기
+    }
+
     private void generateGPSData() {
         GpsData currentData = allGpsData.get(currentIndex % allGpsData.size());
         currentIndex++;
@@ -229,4 +234,33 @@ public class GPSEmulator {
     public boolean isRunning() {
         return isRunning;
     }
+
+    public void sendAllGpsDataInBatches() {
+        int batchSize = config.getBatchSize();
+        int totalSize = allGpsData.size();
+        int startIdx = 0;
+        while (startIdx < totalSize) {
+            int endIdx = Math.min(startIdx + batchSize, totalSize);
+            List<GpsData> batch = allGpsData.subList(startIdx, endIdx);
+            sendDataToServer(batch);
+            startIdx = endIdx;
+        }
+    }
+
+    // 기존 sendDataToServer(List<GpsData>)를 활용
+    private void sendDataToServer(List<GpsData> dataBatch) {
+        try {
+            CycleInfoSendRequest request = createCycleInfoRequest(dataBatch);
+            var response = gpsService.sendGpsData(request);
+
+            if (response.isSuccess()) {
+                System.out.println("✓ GPS 서버 전송 성공: " + dataBatch.size() + "개 데이터");
+            } else {
+                System.err.println("✗ GPS 서버 전송 실패: " + response.getMessage());
+            }
+        } catch (Exception e) {
+            System.err.println("전송 중 오류: " + e.getMessage());
+        }
+    }
+
 }

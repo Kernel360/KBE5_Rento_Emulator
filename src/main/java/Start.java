@@ -22,7 +22,7 @@ public class Start {
                 .serverUrl("http://localhost:8080")
                 .deviceMdn(1L)
                 .firmwareVersion("LTE 1.2")
-                .batchSize(60)
+                .batchSize(85878)
                 .dataGenerationInterval(1)
                 .sendInterval(10000)
                 .build();
@@ -38,7 +38,9 @@ public class Start {
 
         sendGetSetInfoRequest();
         sendCheckInfoRequest();
-        startEmulator(token);
+//        startEmulator(token);
+        startEmulatorBatchSend(token); // <--- 이렇게만 바꿔주면 됨!
+
     }
 
     private static void startEmulator(String token) {
@@ -47,7 +49,7 @@ public class Start {
             return;
         }
 
-        String filePath = "/Users/soyun/workspace/Rento/rento-be/emulator/src/main/java/99_course_trip.txt";
+        String filePath = "/Users/sean/Downloads/99_course_trip.txt";
 
         try {
             gpsEmulator = new GPSEmulator(emulatorConfig, token);
@@ -95,5 +97,23 @@ public class Start {
     private static String extractValueFromJson(HttpClientManager.ApiResponse<String> response, String fieldName) throws IOException {
         JsonNode rootNode = objectMapper.readTree(response.getData());
         return rootNode.get(fieldName).asText();
+    }
+
+    private static void startEmulatorBatchSend(String token) {
+        if (gpsEmulator != null && gpsEmulator.isRunning()) {
+            System.out.println("에뮬레이터가 이미 실행 중입니다.");
+            return;
+        }
+
+        String filePath = "/Users/sean/Downloads/99_course_trip.txt";
+
+        try {
+            gpsEmulator = new GPSEmulator(emulatorConfig, token);
+            gpsEmulator.startBatchSendMode(filePath);
+
+        } catch (Exception e) {
+            System.err.println("에뮬레이터 시작 실패: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 }
