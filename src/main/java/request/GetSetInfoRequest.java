@@ -25,10 +25,10 @@ public class GetSetInfoRequest extends BaseDeviceRequest {
     public void setOnTime(String onTime) {
         this.onTime = onTime;
     }
-    public String getDFWVer() {
+    public String getdFWVer() {
         return dFWVer;
     }
-    public void setDFWVer(String dFWVer) {
+    public void setdFWVer(String dFWVer) {
         this.dFWVer = dFWVer;
     }
 }

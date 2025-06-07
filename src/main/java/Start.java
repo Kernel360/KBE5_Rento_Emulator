@@ -48,7 +48,7 @@ public class Start {
         service.setToken(token);
 
         sendGetSetInfoRequest();
-        sendCheckInfoRequest();
+        //sendCheckInfoRequest();
 
         if(!prepareGpsAndEmulator(token))
             return;

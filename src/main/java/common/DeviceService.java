@@ -25,7 +25,7 @@ public class DeviceService {
     }
 
     public HttpClientManager.ApiResponse<String> sendTokenRequest() {
-        TokenRequest request = new TokenRequest(deviceMdn, firmwareVersion);
+        TokenRequest request = new TokenRequest(deviceMdn, firmwareVersion, "C1");
 
         HttpClientManager.ApiResponse<String> response = httpClient.sendPostRequest(baseUrl + "/api/devices/token", request, null);
 
@@ -46,7 +46,7 @@ public class DeviceService {
 
     public HttpClientManager.ApiResponse<String> sendGetSetInfoRequest() {
         GetSetInfoRequest request = new GetSetInfoRequest(deviceMdn, firmwareVersion);
-        return httpClient.sendPostRequest(baseUrl + "/api/devices/getSetInfo", request, currentToken);
+        return httpClient.sendPostRequest(baseUrl + "/api/devices/get-set-info", request, currentToken);
     }
 
     public HttpClientManager.ApiResponse<String> sendCheckInfoRequest(Integer ctrCnt, Integer getCnt) {
