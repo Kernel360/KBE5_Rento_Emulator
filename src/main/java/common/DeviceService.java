@@ -2,10 +2,7 @@ package common;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import request.CheckInfoRequest;
-import request.CycleInfoSendRequest;
-import request.GetSetInfoRequest;
-import request.TokenRequest;
+import request.*;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -63,6 +60,15 @@ public class DeviceService {
         return httpClient.sendPostRequest(baseUrl + "/api/events/cycle-info", request, currentToken);
     }
 
+    public HttpClientManager.ApiResponse<String> sendOnEventRequest(OnEventRequest request) {
+        return httpClient.sendPostRequest(baseUrl + "/api/events/on-off/on", request, currentToken);
+    }
+
+    public HttpClientManager.ApiResponse<String> sendOffEventRequest(OffEventRequest request) {
+        return httpClient.sendPostRequest(baseUrl + "/api/events/on-off/off", request, currentToken);
+
+    }
+
     public void setToken(String token) {
         this.currentToken = token;
     }
@@ -70,4 +76,10 @@ public class DeviceService {
     public boolean hasValidToken() {
         return currentToken != null && !currentToken.trim().isEmpty();
     }
+
+    public String getCurrentToken() {
+        return currentToken;
+    }
+
+
 }

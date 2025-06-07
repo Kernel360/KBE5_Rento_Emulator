@@ -229,4 +229,8 @@ public class GPSEmulator {
     public boolean isRunning() {
         return isRunning;
     }
+
+    public long getTotalDistanceMeters() {
+        return dataProcessor.getTotalDistanceMeters();
+    }
 }
