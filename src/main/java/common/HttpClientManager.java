@@ -1,6 +1,8 @@
 package common;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import com.fasterxml.jackson.databind.PropertyNamingStrategy;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -33,6 +35,7 @@ public class HttpClientManager {
 
     public <T> ApiResponse<String> sendPostRequest(String url, T requestBody, String token){
         try{
+            objectMapper.setPropertyNamingStrategy(PropertyNamingStrategies.LOWER_CAMEL_CASE);
             String jsonBody = objectMapper.writeValueAsString(requestBody);
 
             HttpRequest.Builder request = HttpRequest.newBuilder()

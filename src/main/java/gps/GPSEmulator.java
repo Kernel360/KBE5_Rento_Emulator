@@ -2,6 +2,8 @@ package gps;
 
 import common.DeviceService;
 import common.EmulatorConfig;
+import common.EventSender;
+import common.GeofenceResponseDto;
 import request.CycleInfoSendRequest;
 
 import java.time.LocalDateTime;
@@ -33,6 +35,10 @@ public class GPSEmulator {
     private ScheduledExecutorService scheduler;
     private boolean isRunning = false;
 
+    private List<GeofenceResponseDto> geofenceResponseDtoList;
+    private int preGeoEvent = 1;
+    private int curGeoEvent = 1;
+
     // 토큰을 받는 생성자로 변경
     public GPSEmulator(EmulatorConfig config, String token) {
         this.config = config;
@@ -55,7 +61,7 @@ public class GPSEmulator {
         this(config, null);
     }
 
-    public void start(String filePath) throws Exception {
+    public void start(String filePath, List<GeofenceResponseDto> geofenceResponseDtoList) throws Exception {
         if (isRunning) {
             shutdown();
         }
@@ -67,7 +73,7 @@ public class GPSEmulator {
         // 초기화
         dataProcessor.reset();
 
-        startEmulation();
+        startEmulation(geofenceResponseDtoList);
         isRunning = true;
     }
 
@@ -78,7 +84,10 @@ public class GPSEmulator {
         }
     }
 
-    private void startEmulation() {
+    public void startEmulation(List<GeofenceResponseDto> geofenceResponseDtoList) {
+        this.geofenceResponseDtoList = geofenceResponseDtoList;
+        // 필드에 저장
+
         scheduler.scheduleAtFixedRate(
                 this::generateGPSData,
                 0,
@@ -113,7 +122,43 @@ public class GPSEmulator {
         synchronized (dataBuffer) {
             dataBuffer.add(newData);
             System.out.printf("GPS 데이터 생성: %d/%d %d %s%n", dataBuffer.size(), config.getBatchSize(), dataBuffer.size(), newData);
+            boolean isInside = isInsideGeofenceHaversine(
+                    newData.getLatitude(),
+                    newData.getLongitude(),
+                    geofenceResponseDtoList.get(0).getLatitude().doubleValue(),
+                    geofenceResponseDtoList.get(0).getLongitude().doubleValue(),
+                    geofenceResponseDtoList.get(0).getGeofenceRange().doubleValue()
+            );
+
+            int curGeoEvent = isInside ? 1 : 2;
+
+            if (preGeoEvent != curGeoEvent) {
+                EventSender.getInstance().sendGeofenceRequest(curGeoEvent);
+                preGeoEvent = curGeoEvent;
+            }
+
+            System.out.println("지오펜스 안에 있음? " + isInside);
         }
+    }
+
+    private boolean isInsideGeofenceHaversine(
+            double lat1, double lon1,  // 현재 위치
+            double lat2, double lon2,  // 지오펜스 중심
+            double radiusKm            // 반경 (km)
+    ) {
+        double EARTH_RADIUS_KM = 6371.0;
+        double latDistance = Math.toRadians(lat2 - lat1);
+        double lonDistance = Math.toRadians(lon2 - lon1);
+
+        double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
+
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        double distance = EARTH_RADIUS_KM * c;
+
+        return distance <= radiusKm;
     }
 
     private void sendDataToServer() {

@@ -66,7 +66,10 @@ public class DeviceService {
 
     public HttpClientManager.ApiResponse<String> sendOffEventRequest(OffEventRequest request) {
         return httpClient.sendPostRequest(baseUrl + "/api/events/on-off/off", request, currentToken);
+    }
 
+    public HttpClientManager.ApiResponse<String> sendGeofenceRequest(GeofenceEventRequest request) {
+        return httpClient.sendPostRequest(baseUrl + "/api/events/geofences", request, currentToken);
     }
 
     public void setToken(String token) {

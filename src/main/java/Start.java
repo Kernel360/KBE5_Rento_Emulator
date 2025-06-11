@@ -1,18 +1,19 @@
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import common.BaseDeviceRequest;
-import common.DeviceService;
-import common.EmulatorConfig;
-import common.HttpClientManager;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import common.*;
 import gps.*;
+import request.GeofenceEventRequest;
 import request.OffEventRequest;
 import request.OnEventRequest;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
+import java.util.concurrent.CompletableFuture;
 
 public class Start {
 
@@ -23,10 +24,13 @@ public class Start {
     private static final ObjectMapper objectMapper = new ObjectMapper();
     private static List<GpsData> gpsDataList;
     private static String onEventTime;
-    private static final String GPS_FILE_PATH = "/Users/soyun/workspace/Rento/rento-be/emulator/src/main/java/99_course_trip.txt";
-
+    private static String oTime;
+    private static final String GPS_FILE_PATH = "/gps/99_course_trip.txt";
+    public static List<GeofenceResponseDto> geoList = new ArrayList<>();
 
     public static void main(String[] args) throws IOException {
+
+
         System.out.println("START THE CAR");
 
         emulatorConfig = new EmulatorConfig.Builder()
@@ -44,20 +48,33 @@ public class Start {
                 emulatorConfig.getFirmwareVersion()
         );
 
-        String token = extractValueFromJson(service.sendTokenRequest(), "token");
+        String token = extractValueFromJson(service.sendTokenRequest());
         service.setToken(token);
 
-        sendGetSetInfoRequest();
-        //sendCheckInfoRequest();
+        EventSender.getInstance().init(
+                service,
+                emulatorConfig,
+                () -> gpsDataList,
+                () -> gpsEmulator,
+                () -> onEventTime,
+                (val) -> onEventTime = val,
+                (val) -> oTime = val
+        );
 
-        if(!prepareGpsAndEmulator(token))
-            return;
+        CompletableFuture<Void> future = sendGetSetInfoRequestAsync() // 설정 정보를 받고 prepareGpsAndEmulator 실행
+                .thenRun(() -> {
+                    if (!prepareGpsAndEmulator(token))
+                        return;
 
-        if(sendOnEventRequest()) {
-            waitForUserToQuit();
-        }
+                    if (EventSender.getInstance().sendOnEventRequest()) {
+                        waitForUserToQuit();
+                    }
 
-        sendOffEventRequest();
+                    EventSender.getInstance().sendOffEventRequest();
+                });
+
+        // 🔽 main 스레드가 종료되지 않도록 대기
+        future.join();
     }
 
     private static boolean prepareGpsAndEmulator(String token) {
@@ -70,7 +87,7 @@ public class Start {
             }
 
             gpsEmulator = new GPSEmulator(emulatorConfig, token);
-            gpsEmulator.start(GPS_FILE_PATH);
+            gpsEmulator.start(GPS_FILE_PATH, geoList);
 
             return true;
         } catch (Exception e) {
@@ -106,97 +123,6 @@ public class Start {
         }
     }
 
-    private static void sendOffEventRequest() {
-        if (!service.hasValidToken()) {
-            System.out.println("유효한 토큰이 없습니다. 토큰을 먼저 발급받으세요");
-            return;
-        }
-
-        if(gpsDataList.isEmpty()){
-            System.out.println("GPS 데이터가 없습니다");
-            return;
-        }
-
-        try{
-            String offTime  = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
-
-            GpsData firstData = gpsDataList.get(gpsDataList.size()-1);
-
-            OffEventRequest request = new OffEventRequest(
-                    onEventTime,
-                    offTime,
-                    'A',
-                    firstData.getLatitude(),
-                    firstData.getLongitude(),
-                    "0",
-                    "0",
-                    gpsEmulator.getTotalDistanceMeters()
-            );
-
-            BaseDeviceRequest.setDefaults(request, emulatorConfig.getDeviceMdn());
-
-            HttpClientManager.ApiResponse<String> response = service.sendOffEventRequest(request);
-
-            if (response.isSuccess()) {
-                System.out.println("OnEvent 전송 성공");
-            } else {
-                System.err.println("OnEvent 전송 실패: " + response.getMessage());
-                System.err.println("응답 코드: " + response.getCode());
-            }
-
-        } catch (Exception e) {
-            System.err.println("OnEvent 요청 중 예외 발생: " + e.getMessage());
-            e.printStackTrace();
-        }
-
-    }
-
-    private static boolean sendOnEventRequest() {
-        if (!service.hasValidToken()) {
-            System.out.println("유효한 토큰이 없습니다. 토큰을 먼저 발급받으세요");
-            return false;
-        }
-
-        if(gpsDataList.isEmpty()){
-            System.out.println("GPS 데이터가 없습니다");
-            return false;
-        }
-
-        try{
-            onEventTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
-
-            GpsData firstData = gpsDataList.get(0);
-
-            OnEventRequest request = new OnEventRequest(
-                    onEventTime,
-                    null,
-                    'A',
-                    firstData.getLatitude(),
-                    firstData.getLongitude(),
-                    "0",
-                    "0",
-                    //todo: 시작할때 누적 주행거리는 시동 off 일때의 값으로
-                    0L
-            );
-
-            BaseDeviceRequest.setDefaults(request, emulatorConfig.getDeviceMdn());
-
-            HttpClientManager.ApiResponse<String> response = service.sendOnEventRequest(request);
-
-            if (response.isSuccess()) {
-                System.out.println("OnEvent 전송 성공");
-            } else {
-                System.err.println("OnEvent 전송 실패: " + response.getMessage());
-                System.err.println("응답 코드: " + response.getCode());
-            }
-
-        } catch (Exception e) {
-            System.err.println("OnEvent 요청 중 예외 발생: " + e.getMessage());
-            e.printStackTrace();
-        }
-
-        return true;
-    }
 
     private static void startEmulator(String token) {
         if (gpsEmulator != null && gpsEmulator.isRunning()) {
@@ -208,7 +134,7 @@ public class Start {
 
         try {
             gpsEmulator = new GPSEmulator(emulatorConfig, token);
-            gpsEmulator.start(filePath);
+            gpsEmulator.start(filePath, geoList);
 
         } catch (Exception e) {
             System.err.println("에뮬레이터 시작 실패: " + e.getMessage());
@@ -216,23 +142,31 @@ public class Start {
         }
     }
 
-    private static void sendGetSetInfoRequest() {
-        if (!service.hasValidToken()) {
-            System.out.println("유효한 토큰이 없습니다. 토큰을 먼저 발급받으세요");
-            return;
-        }
+    private static CompletableFuture<Void> sendGetSetInfoRequestAsync() {
+        return CompletableFuture.runAsync(() -> {
+            if (!service.hasValidToken()) {
+                System.out.println("유효한 토큰이 없습니다. 토큰을 먼저 발급받으세요");
+                return;
+            }
 
-        try {
-            HttpClientManager.ApiResponse<String> response = service.sendGetSetInfoRequest();
-            JsonNode rootNode = objectMapper.readTree(response.getData());
+            try {
+                HttpClientManager.ApiResponse<String> response = service.sendGetSetInfoRequest();
+                JsonNode rootNode = objectMapper.readTree(response.getData());
 
-            ctrCnt = rootNode.get("ctrCnt").asInt();
-            geoCnt = rootNode.get("geoCnt").asInt();
+                ObjectMapper objectMapper = new ObjectMapper();
+                objectMapper.registerModule(new JavaTimeModule());
+                GeofenceListWrapperDto result = objectMapper.readValue(response.getData(), GeofenceListWrapperDto.class);
 
-            System.out.println("설정 정보 성공 여부: " + response.isSuccess());
-        } catch (Exception e) {
-            System.err.println("GetSetInfo 요청 중 예외 발생: " + e.getMessage());
-        }
+                geoList = result.getGeoList();
+
+                ctrCnt = rootNode.get("ctrCnt").asInt();
+                geoCnt = rootNode.get("geoCnt").asInt();
+
+                System.out.println("설정 정보 성공 여부: " + response.isSuccess());
+            } catch (Exception e) {
+                System.err.println("GetSetInfo 요청 중 예외 발생: " + e.getMessage());
+            }
+        });
     }
 
     private static void sendCheckInfoRequest() {
@@ -249,8 +183,8 @@ public class Start {
         }
     }
 
-    private static String extractValueFromJson(HttpClientManager.ApiResponse<String> response, String fieldName) throws IOException {
+    private static String extractValueFromJson(HttpClientManager.ApiResponse<String> response) throws IOException {
         JsonNode rootNode = objectMapper.readTree(response.getData());
-        return rootNode.get(fieldName).asText();
+        return rootNode.get("token").asText();
     }
 }
