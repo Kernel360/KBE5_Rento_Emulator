@@ -82,6 +82,7 @@ func PostCycleEvent(lines []string, token string, ticker *time.Ticker, geofenceI
 			cycleInfos := gps.ConvertGpsToCycleInfo(gpsDataList, totalDistanceList)
 
 			batch = append(batch, cycleInfos...)
+			fmt.Printf("🚩 CycleEvent 전송: %d개 cycle-info 포함\n", len(batch))
 
 			event := domain.CycleEvent{
 				Mdn:                        1,
@@ -94,7 +95,7 @@ func PostCycleEvent(lines []string, token string, ticker *time.Ticker, geofenceI
 				Longitude:                  fmt.Sprintf("%.6f", batch[len(batch)-1].Lon),
 				Angle:                      int(batch[len(batch)-1].Ang),
 				Speed:                      int(batch[len(batch)-1].Spd),
-				OTime:                      time.Now().UTC().Truncate(time.Microsecond),
+				OTime:                      time.Now().UTC().Format("200601021504"),
 				CurrentAccumulatedDistance: totalDistance,
 				CycleCount:                 int(len(batch)), // Ensure CycleCount is set as int(len(batch))
 				Clist:                      batch,

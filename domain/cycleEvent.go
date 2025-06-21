@@ -1,7 +1,5 @@
 package domain
 
-import "time"
-
 type CycleEvent struct {
 	Id                         int64       `json:"id"`             // ID
 	DeviceUniqueId             int64       `json:"deviceUniqueId"` // device unique id
@@ -17,7 +15,7 @@ type CycleEvent struct {
 	Speed                      int         `json:"spd"`            // 속도
 	CurrentAccumulatedDistance int64       `json:"sum"`            // 누적 거리
 	EventType                  string      `json:"evtVal"`         // event type (as string for enum)
-	OTime                      time.Time   `json:"oTime"`          // 발생 시간 (as string to match JSON date string)
+	OTime                      string      `json:"oTime"`          // 발생 시간 (as string to match JSON date string)
 	CycleCount                 int         `json:"cCnt"`           // cycle count
 	Clist                      []CycleInfo `json:"cList"`          // cycle info list
 }
