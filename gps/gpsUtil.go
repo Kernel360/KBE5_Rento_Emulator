@@ -46,30 +46,38 @@ func bearing(lat1, lon1, lat2, lon2 float64) float64 {
 func ConvertGpsToCycleInfo(data []domain.GpsData, totalDistanceList []int64) []domain.CycleInfo {
 	var result []domain.CycleInfo
 
-	for i := 1; i < len(data); i++ {
-		prev := data[i-1]
-		curr := data[i]
+	for i := 0; i < len(data); i++ {
+		var dist, speed, angle float64
+		if i > 0 {
+			prev := data[i-1]
+			curr := data[i]
 
-		dist := Haversine(prev.Lat, prev.Lon, curr.Lat, curr.Lon)
-		duration := curr.DateTime.Sub(prev.DateTime).Seconds()
-		if duration <= 0 {
-			continue
+			dist = Haversine(prev.Lat, prev.Lon, curr.Lat, curr.Lon)
+			duration := curr.DateTime.Sub(prev.DateTime).Seconds()
+			if duration > 0 {
+				speed = dist / duration * 3.6
+			}
+			angle = bearing(prev.Lat, prev.Lon, curr.Lat, curr.Lon)
 		}
-		speed := dist / duration * 3.6 // m/s to km/h
-		angle := bearing(prev.Lat, prev.Lon, curr.Lat, curr.Lon)
 
+		curr := data[i]
 		info := domain.CycleInfo{
 			Sec: func() int {
 				sec, _ := strconv.Atoi(curr.DateTime.Format("05"))
 				return sec
 			}(),
-			Gcd: "A", // 기본은 정상
+			Gcd: "A",
 			Lat: math.Round(curr.Lat*1e6) / 1e6,
 			Lon: math.Round(curr.Lon*1e6) / 1e6,
 			Ang: int(angle),
 			Spd: int(speed),
-			Sum: int64(totalDistanceList[i-1]), // 누적 거리
-			Bat: 9999,                          // 가정
+			Sum: func() int64 {
+				if i == 0 {
+					return 0
+				}
+				return int64(totalDistanceList[i-1])
+			}(),
+			Bat: 9999,
 		}
 
 		result = append(result, info)

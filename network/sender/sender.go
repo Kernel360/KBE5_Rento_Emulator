@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	// baseURL = "https://api.rento.world"
+	//baseURL = "https://api.rento.world"
 	baseURL = "http://localhost:8080"
 	client  = &http.Client{Timeout: 10 * time.Second}
 )
