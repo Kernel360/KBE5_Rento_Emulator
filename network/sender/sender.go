@@ -13,12 +13,13 @@ import (
 
 var (
 	//baseURL = "https://api.rento.world"
-	baseURL = "http://localhost:8080"
-	client  = &http.Client{Timeout: 10 * time.Second}
+	baseURL_Adapter = "http://localhost:8081"
+	baseURL_Api     = "http://localhost:8080"
+	client          = &http.Client{Timeout: 10 * time.Second}
 )
 
 func GetToken(mdn int, firmware string) (string, error) {
-	url := baseURL + "/api/devices/token"
+	url := baseURL_Api + "/api/devices/token"
 	requestBody := domain.DeviceTokenRequest{
 		Mdn:         mdn,
 		Tid:         "A001",
@@ -62,7 +63,7 @@ func GetToken(mdn int, firmware string) (string, error) {
 }
 
 func SendCycleInfoEvent(event domain.CycleEvent, token string) error {
-	url := baseURL + "/api/events/cycle-info"
+	url := baseURL_Adapter + "/api/events/cycle-info"
 
 	jsonData, err := json.Marshal(event)
 	if err != nil {
@@ -93,7 +94,7 @@ func SendCycleInfoEvent(event domain.CycleEvent, token string) error {
 }
 
 func SendOnOffEvent(event domain.OnOffEvent, token string, eventType util.EventType) error {
-	url := baseURL + "/api/events/on-off"
+	url := baseURL_Adapter + "/api/events/on-off"
 
 	// Replace 'EventType' with the correct field name from domain.OnOffEvent, e.g., 'EventType'
 	if eventType == util.EventTypeOn {
@@ -106,7 +107,6 @@ func SendOnOffEvent(event domain.OnOffEvent, token string, eventType util.EventT
 	if err != nil {
 		return fmt.Errorf("failed to marshal request: %w", err)
 	}
-	fmt.Println("📦 Sending JSON:", string(jsonData))
 
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
@@ -132,7 +132,7 @@ func SendOnOffEvent(event domain.OnOffEvent, token string, eventType util.EventT
 }
 
 func GetControlInfo(token string) (*domain.ControlInfoResponse, error) {
-	url := baseURL + "/api/devices/get-set-info"
+	url := baseURL_Api + "/api/devices/get-set-info"
 
 	request := domain.ControlInfo{
 		Mdn:                   1,
@@ -148,12 +148,11 @@ func GetControlInfo(token string) (*domain.ControlInfoResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("📥 Response:", string(respBody))
 	return util.ParseControlInfoResponse(respBody)
 }
 
 func SendGeofenceEvent(token string, request domain.GeofenceEventRequest) error {
-	url := baseURL + "/api/events/geofences"
+	url := baseURL_Adapter + "/api/events/geofences"
 
 	respBody, err := sendPostRequest(url, request, token)
 	if err != nil {
@@ -168,7 +167,6 @@ func sendPostRequest(url string, payload interface{}, token string) (respBody []
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
-	fmt.Println("📦 Sending JSON:", string(jsonData))
 
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {

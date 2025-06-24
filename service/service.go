@@ -13,14 +13,14 @@ import (
 
 func PostCycleEvent(lines []string, token string, ticker *time.Ticker, geofenceInfo domain.GeofenceControlInfoResponse, lastGpsData domain.GpsData) {
 	preGeoEvent := 1
-	linesCount := len(lines)
 	var gpsDataList []domain.GpsData
 	var totalDistance int64 = 1000
 	var totalDistanceList []int64 = []int64{}
 
+	loc, _ := time.LoadLocation("Asia/Seoul")
+
 	for i := 0; i < len(lines); i++ {
 		<-ticker.C
-		linesCount--
 		line := lines[i]
 		fields := strings.Fields(line)
 		if len(fields) < 6 || i == 0 {
@@ -82,7 +82,6 @@ func PostCycleEvent(lines []string, token string, ticker *time.Ticker, geofenceI
 			cycleInfos := gps.ConvertGpsToCycleInfo(gpsDataList, totalDistanceList)
 
 			batch = append(batch, cycleInfos...)
-			fmt.Printf("🚩 CycleEvent 전송: %d개 cycle-info 포함\n", len(batch))
 
 			event := domain.CycleEvent{
 				Mdn:                        1,
@@ -95,11 +94,13 @@ func PostCycleEvent(lines []string, token string, ticker *time.Ticker, geofenceI
 				Longitude:                  fmt.Sprintf("%.6f", batch[len(batch)-1].Lon),
 				Angle:                      int(batch[len(batch)-1].Ang),
 				Speed:                      int(batch[len(batch)-1].Spd),
-				OTime:                      time.Now().UTC().Format("200601021504"),
+				OTime:                      time.Now().In(loc).Format("200601021504"),
 				CurrentAccumulatedDistance: totalDistance,
 				CycleCount:                 int(len(batch)), // Ensure CycleCount is set as int(len(batch))
 				Clist:                      batch,
 			}
+
+			fmt.Printf("▶️ PostCycleEvent 실행 시작: %s\n", time.Now())
 
 			err := sender.SendCycleInfoEvent(event, token)
 			if err != nil {
@@ -113,9 +114,7 @@ func PostCycleEvent(lines []string, token string, ticker *time.Ticker, geofenceI
 		}
 	}
 
-	if linesCount == 0 {
-		PostOnOffEvent(token, util.EventTypeOff, lastGpsData, totalDistance)
-	}
+	PostOnOffEvent(token, util.EventTypeOff, lastGpsData, totalDistance)
 }
 
 var savedOnTime string // package-level variable to store OnTime
@@ -124,14 +123,16 @@ func PostOnOffEvent(token string, eventType util.EventType, gpsData domain.GpsDa
 	var onTime string
 	var offTime *string
 
+	loc, _ := time.LoadLocation("Asia/Seoul")
+
 	switch eventType {
 	case util.EventTypeOn:
-		onTime = time.Now().UTC().Format("20060102150405")
+		onTime = time.Now().In(loc).Format("20060102150405")
 		savedOnTime = onTime // save for later use
 		offTime = nil
 	case util.EventTypeOff:
 		onTime = savedOnTime
-		t := time.Now().UTC().Format("20060102150405")
+		t := time.Now().In(loc).Format("20060102150405")
 		offTime = &t
 	default:
 		fmt.Println("알 수 없는 이벤트 타입:", eventType)
@@ -154,7 +155,10 @@ func PostOnOffEvent(token string, eventType util.EventType, gpsData domain.GpsDa
 		CurrentAccumulatedDistance: totalDistance,
 	}
 
+	fmt.Printf("▶️ PostOnOffEvent 실행 시작: %s\n", time.Now())
+
 	err := sender.SendOnOffEvent(event, token, eventType)
+
 	if err != nil {
 		fmt.Println("On/Off 이벤트 전송 실패:", err)
 	} else {
@@ -164,13 +168,15 @@ func PostOnOffEvent(token string, eventType util.EventType, gpsData domain.GpsDa
 
 func PostGeofenceEvent(token string, gpsData domain.GpsData, eventVal int, totalDistance int64) {
 
+	loc, _ := time.LoadLocation("Asia/Seoul")
+
 	geofenceEventRequest := domain.GeofenceEventRequest{
 		Mdn:             1,
 		TerminalId:      "A001",
 		MakerId:         6,
 		PacketVersion:   5,
 		DeviceId:        1,
-		OTime:           time.Now().UTC().Format("20060102150405"),
+		OTime:           time.Now().In(loc).Format("20060102150405"),
 		GeofenceGroupId: 1,
 		GeofencePointId: 1,
 		EventValue:      eventVal,

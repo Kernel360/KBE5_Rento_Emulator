@@ -63,8 +63,9 @@ func ConvertGpsToCycleInfo(data []domain.GpsData, totalDistanceList []int64) []d
 		curr := data[i]
 		info := domain.CycleInfo{
 			Sec: func() int {
-				sec, _ := strconv.Atoi(curr.DateTime.Format("05"))
-				return sec
+				base := time.Now()
+				t := base.Add(time.Duration(i) * time.Second)
+				return t.Second()
 			}(),
 			Gcd: "A",
 			Lat: math.Round(curr.Lat*1e6) / 1e6,

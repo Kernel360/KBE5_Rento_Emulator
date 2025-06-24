@@ -1,33 +1,17 @@
 package main
 
 import (
-	"emulator/domain"
 	"emulator/gps"
 	"emulator/network/sender"
 	"emulator/service"
 	"emulator/util"
 	"fmt"
-	"os"
 	"sync"
 	"time"
 )
 
 func main() {
 	var token string
-	var lastGpsData domain.GpsData
-
-	go func() {
-		var input string
-		for {
-			fmt.Scanln(&input)
-			if input == "q" {
-				fmt.Println("종료 요청 감지됨. 프로그램을 종료합니다.")
-				service.PostOnOffEvent(token, util.EventTypeOff, lastGpsData, 0)
-				os.Exit(0)
-			}
-		}
-	}()
-
 	var wg sync.WaitGroup
 
 	for i := 0; i < util.ThreadCount; i++ {
@@ -49,7 +33,11 @@ func main() {
 				return
 			}
 
-			lastGpsData, err = gps.ParseLineToGpsData(lines[len(lines)-1])
+			lastGpsData, err := gps.ParseLineToGpsData(lines[len(lines)-1])
+			if err != nil {
+				fmt.Printf("[#%d] 마지막 GPS 데이터 파싱 오류: %v\n", index, err)
+				return
+			}
 
 			contrlInfoResponse, err := sender.GetControlInfo(token)
 			if err != nil {
@@ -66,10 +54,10 @@ func main() {
 				return
 			}
 
-			service.PostOnOffEvent(token, util.EventTypeOn, gposData, 0)
-
 			ticker := time.NewTicker(1 * time.Second)
 			defer ticker.Stop()
+
+			service.PostOnOffEvent(token, util.EventTypeOn, gposData, 0)
 
 			service.PostCycleEvent(lines, token, ticker, geofenceInfo, lastGpsData)
 		}(i)
