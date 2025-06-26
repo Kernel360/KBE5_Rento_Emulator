@@ -17,7 +17,8 @@ import (
 )
 
 func main() {
-	guiApp := app.New()
+	guiApp := app.NewWithID("rento.emulator")
+	statusLabel := widget.NewLabel("")
 	win := guiApp.NewWindow("Rento Emulator Controller")
 	win.Resize(fyne.NewSize(300, 200))
 
@@ -44,6 +45,10 @@ func main() {
 	}
 
 	runButton := widget.NewButton("Start Emulator", func() {
+		statusLabel.SetText("● 실행 중")
+		statusLabel.TextStyle = fyne.TextStyle{Bold: true}
+		statusLabel.Refresh()
+
 		threadCountEntry.Disable()
 		cycleCountEntry.Disable()
 
@@ -71,6 +76,10 @@ func main() {
 		util.StopSignal <- struct{}{}
 		threadCountEntry.Enable()
 		cycleCountEntry.Enable()
+
+		statusLabel.SetText("● 중지됨")
+		statusLabel.TextStyle = fyne.TextStyle{Bold: true}
+		statusLabel.Refresh()
 	})
 
 	win.SetContent(container.NewVBox(
@@ -83,6 +92,7 @@ func main() {
 		),
 		runButton,
 		stopButton,
+		statusLabel,
 	))
 
 	win.ShowAndRun()
@@ -100,35 +110,42 @@ func runEmulator() {
 			var err error
 			token, err = sender.GetToken(1, "v1.0.0")
 			if err != nil {
-				fmt.Printf("[#%d] 토큰 요청 실패: %v\n", index, err)
+				msg := fmt.Sprintf("[#%d] 토큰 요청 실패: %v\n", index, err)
+				fmt.Print(msg)
 				return
 			}
-			fmt.Printf("[#%d] 토큰: %s\n", index, token)
+			msg := fmt.Sprintf("[#%d] 토큰: %s\n", index, token)
+			fmt.Print(msg)
 
 			lines, err := util.ReadFileLines()
 			if err != nil {
-				fmt.Printf("[#%d] 파일 읽기 오류: %v\n", index, err)
+				msg := fmt.Sprintf("[#%d] 파일 읽기 오류: %v\n", index, err)
+				fmt.Print(msg)
 				return
 			}
 
 			lastGpsData, err := gps.ParseLineToGpsData(lines[len(lines)-1])
 			if err != nil {
-				fmt.Printf("[#%d] 마지막 GPS 데이터 파싱 오류: %v\n", index, err)
+				msg := fmt.Sprintf("[#%d] 마지막 GPS 데이터 파싱 오류: %v\n", index, err)
+				fmt.Print(msg)
 				return
 			}
 
 			contrlInfoResponse, err := sender.GetControlInfo(token)
 			if err != nil {
-				fmt.Printf("[#%d] 제어 정보 요청 실패: %v\n", index, err)
+				msg := fmt.Sprintf("[#%d] 제어 정보 요청 실패: %v\n", index, err)
+				fmt.Print(msg)
 				return
 			}
-			fmt.Printf("[#%d] 제어 정보: %+v\n", index, contrlInfoResponse)
+			msg = fmt.Sprintf("[#%d] 제어 정보: %+v\n", index, contrlInfoResponse)
+			fmt.Print(msg)
 
 			geofenceInfo := contrlInfoResponse.GeofenceControlInfoResponseList[0]
 
 			gposData, err := gps.ParseLineToGpsData(lines[1])
 			if err != nil {
-				fmt.Printf("[#%d] GPS 데이터 파싱 오류: %v\n", index, err)
+				msg := fmt.Sprintf("[#%d] GPS 데이터 파싱 오류: %v\n", index, err)
+				fmt.Print(msg)
 				return
 			}
 

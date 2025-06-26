@@ -7,6 +7,20 @@ var (
 	StopOnce   sync.Once
 )
 
+var LogUpdateHandler func(string)
+
+// AppendLog appends a log message to the UI
+func AppendLog(msg string) {
+	if LogUpdateHandler != nil {
+		LogUpdateHandler(msg)
+	}
+}
+
+// ReportError sends an error message to the UI log
+func ReportError(err error) {
+	AppendLog("❌ 에러 발생: " + err.Error())
+}
+
 // StopEmulator safely closes the StopSignal channel once
 func StopEmulator() {
 	StopOnce.Do(func() {
