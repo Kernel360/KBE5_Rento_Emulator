@@ -16,7 +16,11 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
+// signal that all goroutines have finished
+var doneAll = make(chan struct{}, 1)
+
 func main() {
+	util.StopSignal = make(chan struct{})
 	guiApp := app.NewWithID("rento.emulator")
 	statusLabel := widget.NewLabel("")
 	win := guiApp.NewWindow("Rento Emulator Controller")
@@ -33,16 +37,34 @@ func main() {
 		}
 	}
 
-	cycleCountEntry := widget.NewEntry()
+	cycleOptions := []string{}
+	for i := 5; i <= 60; i += 5 {
+		cycleOptions = append(cycleOptions, strconv.Itoa(i))
+	}
+
+	cycleCountEntry := widget.NewSelectEntry(cycleOptions)
 	cycleCountEntry.SetText("5")
-	cycleCountEntry.SetPlaceHolder("주행 개수 (5–60)")
-	cycleCountEntry.OnChanged = func(s string) {
-		if val, err := strconv.Atoi(s); err != nil || val < 5 {
-			cycleCountEntry.SetText("5")
-		} else if val > 60 {
-			cycleCountEntry.SetText("60")
+
+	maxReadValueEntry := widget.NewEntry()
+	maxReadValueEntry.SetText("1000")
+	maxReadValueEntry.SetPlaceHolder("주행 거리 (1–10000)")
+	maxReadValueEntry.OnChanged = func(s string) {
+		if val, err := strconv.Atoi(s); err != nil || val < 1 {
+			maxReadValueEntry.SetText("1")
+		} else if val > 10000 {
+			maxReadValueEntry.SetText("10000")
 		}
 	}
+
+	urlToggle := widget.NewRadioGroup([]string{"Local", "Deploy"}, func(value string) {
+		if value == "Deploy" {
+			sender.UseDeployURL = true
+		} else {
+			sender.UseDeployURL = false
+		}
+	})
+	urlToggle.Horizontal = true
+	urlToggle.SetSelected("Local")
 
 	runButton := widget.NewButton("Start Emulator", func() {
 		statusLabel.SetText("● 실행 중")
@@ -66,14 +88,27 @@ func main() {
 			cycleCount = 60
 		}
 
+		maxReadValue, err3 := strconv.Atoi(maxReadValueEntry.Text)
+		if err3 != nil || maxReadValue < 1 {
+			maxReadValue = 1
+		} else if maxReadValue > 10000 {
+			maxReadValue = 10000
+		}
+		util.MaxReadValue = maxReadValue
+
 		util.ThreadCount = threadCount
 		util.CycleCount = cycleCount
 
-		go runEmulator()
+		go func() {
+			runEmulator()
+			// notify completion
+			doneAll <- struct{}{}
+		}()
 	})
 
 	stopButton := widget.NewButton("Stop Emulator", func() {
-		util.StopSignal <- struct{}{}
+		close(util.StopSignal)
+		util.StopSignal = make(chan struct{})
 		threadCountEntry.Enable()
 		cycleCountEntry.Enable()
 
@@ -89,19 +124,35 @@ func main() {
 			container.NewMax(threadCountEntry),
 			widget.NewLabel("주행 개수: (1–60)"),
 			container.NewMax(cycleCountEntry),
+			widget.NewLabel("주행 거리: (1–10000)"),
+			container.NewMax(maxReadValueEntry),
 		),
+		urlToggle,
 		runButton,
 		stopButton,
 		statusLabel,
 	))
 
+	// monitor completion signal and update UI on main thread
+	go func() {
+		for range doneAll {
+			statusLabel.SetText("● 모든 쓰레드 종료됨")
+			statusLabel.TextStyle = fyne.TextStyle{Bold: true}
+			statusLabel.Refresh()
+			threadCountEntry.Enable()
+			cycleCountEntry.Enable()
+		}
+	}()
+
 	win.ShowAndRun()
 }
 
 func runEmulator() {
+	stopSignal := util.StopSignal
 	var token string
 	var wg sync.WaitGroup
 
+	fmt.Println("에뮬레이터 시작 - 차량 대수:", util.ThreadCount, "주행 개수:", util.CycleCount)
 	for i := 0; i < util.ThreadCount; i++ {
 		wg.Add(1)
 		go func(index int) {
@@ -110,56 +161,56 @@ func runEmulator() {
 			var err error
 			token, err = sender.GetToken(1, "v1.0.0")
 			if err != nil {
-				msg := fmt.Sprintf("[#%d] 토큰 요청 실패: %v\n", index, err)
+				msg := fmt.Sprintf("[#%d] 토큰 요청 실패: %v\n", index+1, err)
 				fmt.Print(msg)
 				return
 			}
-			msg := fmt.Sprintf("[#%d] 토큰: %s\n", index, token)
+			msg := fmt.Sprintf("[#%d] 토큰: %s\n", index+1, token)
 			fmt.Print(msg)
 
 			lines, err := util.ReadFileLines()
 			if err != nil {
-				msg := fmt.Sprintf("[#%d] 파일 읽기 오류: %v\n", index, err)
+				msg := fmt.Sprintf("[#%d] 파일 읽기 오류: %v\n", index+1, err)
 				fmt.Print(msg)
 				return
 			}
 
 			lastGpsData, err := gps.ParseLineToGpsData(lines[len(lines)-1])
 			if err != nil {
-				msg := fmt.Sprintf("[#%d] 마지막 GPS 데이터 파싱 오류: %v\n", index, err)
+				msg := fmt.Sprintf("[#%d] 마지막 GPS 데이터 파싱 오류: %v\n", index+1, err)
 				fmt.Print(msg)
 				return
 			}
 
 			contrlInfoResponse, err := sender.GetControlInfo(token)
 			if err != nil {
-				msg := fmt.Sprintf("[#%d] 제어 정보 요청 실패: %v\n", index, err)
+				msg := fmt.Sprintf("[#%d] 제어 정보 요청 실패: %v\n", index+1, err)
 				fmt.Print(msg)
 				return
 			}
-			msg = fmt.Sprintf("[#%d] 제어 정보: %+v\n", index, contrlInfoResponse)
+			msg = fmt.Sprintf("[#%d] 제어 정보: %+v\n", index+1, contrlInfoResponse)
 			fmt.Print(msg)
 
 			geofenceInfo := contrlInfoResponse.GeofenceControlInfoResponseList[0]
 
 			gposData, err := gps.ParseLineToGpsData(lines[1])
 			if err != nil {
-				msg := fmt.Sprintf("[#%d] GPS 데이터 파싱 오류: %v\n", index, err)
+				msg := fmt.Sprintf("[#%d] GPS 데이터 파싱 오류: %v\n", index+1, err)
 				fmt.Print(msg)
 				return
 			}
 
 			ticker := time.NewTicker(1 * time.Second)
 			go func() {
-				<-util.StopSignal
+				<-stopSignal
 				ticker.Stop()
-				service.PostOnOffEvent(token, util.EventTypeOff, lastGpsData, 0)
+				service.PostOnOffEvent(token, util.EventTypeOff, lastGpsData, 0, int64(index+1))
 			}()
 			defer ticker.Stop()
 
-			service.PostOnOffEvent(token, util.EventTypeOn, gposData, 0)
+			service.PostOnOffEvent(token, util.EventTypeOn, gposData, 0, int64(index+1))
 
-			service.PostCycleEvent(lines, token, ticker, geofenceInfo, lastGpsData)
+			service.PostCycleEvent(lines, token, ticker, geofenceInfo, lastGpsData, int64(index+1))
 		}(i)
 	}
 

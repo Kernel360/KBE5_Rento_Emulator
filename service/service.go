@@ -11,7 +11,8 @@ import (
 	"time"
 )
 
-func PostCycleEvent(lines []string, token string, ticker *time.Ticker, geofenceInfo domain.GeofenceControlInfoResponse, lastGpsData domain.GpsData) {
+func PostCycleEvent(lines []string, token string, ticker *time.Ticker, geofenceInfo domain.GeofenceControlInfoResponse, lastGpsData domain.GpsData, mdn int64) {
+	util.AppendLog("🚗 에뮬레이터 실행 중...\n")
 	preGeoEvent := 1
 	var gpsDataList []domain.GpsData
 	var totalDistance int64 = 1000
@@ -31,6 +32,7 @@ func PostCycleEvent(lines []string, token string, ticker *time.Ticker, geofenceI
 		parsedTime, err := time.Parse("2006-01-02 15:04:05.00", dateStr)
 		if err != nil {
 			fmt.Println("시간 파싱 오류:", err)
+			util.AppendLog(fmt.Sprintf("❌ 시간 파싱 오류: %v\n", err))
 			continue
 		}
 
@@ -72,7 +74,7 @@ func PostCycleEvent(lines []string, token string, ticker *time.Ticker, geofenceI
 		}
 
 		if preGeoEvent != curGeoEvent {
-			PostGeofenceEvent(token, gpsData, curGeoEvent, totalDistance)
+			PostGeofenceEvent(token, gpsData, curGeoEvent, totalDistance, mdn)
 			preGeoEvent = curGeoEvent
 		}
 
@@ -84,7 +86,7 @@ func PostCycleEvent(lines []string, token string, ticker *time.Ticker, geofenceI
 			batch = append(batch, cycleInfos...)
 
 			event := domain.CycleEvent{
-				Mdn:                        1,
+				Mdn:                        mdn,
 				TerminalId:                 "A001",
 				MakerId:                    6,
 				PacketVersion:              5,
@@ -105,6 +107,7 @@ func PostCycleEvent(lines []string, token string, ticker *time.Ticker, geofenceI
 			err := sender.SendCycleInfoEvent(event, token)
 			if err != nil {
 				fmt.Println("주기정보 전송 실패:", err)
+				util.AppendLog(fmt.Sprintf("❌ 주기정보 전송 실패: %v\n", err))
 			} else {
 				fmt.Println("주기정보 전송 성공")
 			}
@@ -114,12 +117,12 @@ func PostCycleEvent(lines []string, token string, ticker *time.Ticker, geofenceI
 		}
 	}
 
-	PostOnOffEvent(token, util.EventTypeOff, lastGpsData, totalDistance)
+	PostOnOffEvent(token, util.EventTypeOff, lastGpsData, totalDistance, mdn)
 }
 
 var savedOnTime string // package-level variable to store OnTime
 
-func PostOnOffEvent(token string, eventType util.EventType, gpsData domain.GpsData, totalDistance int64) {
+func PostOnOffEvent(token string, eventType util.EventType, gpsData domain.GpsData, totalDistance int64, mdn int64) {
 	var onTime string
 	var offTime *string
 
@@ -136,11 +139,12 @@ func PostOnOffEvent(token string, eventType util.EventType, gpsData domain.GpsDa
 		offTime = &t
 	default:
 		fmt.Println("알 수 없는 이벤트 타입:", eventType)
+		util.AppendLog(fmt.Sprintf("❌ 알 수 없는 이벤트 타입: %v\n", eventType))
 		return
 	}
 
 	event := domain.OnOffEvent{
-		Mdn:                        1,
+		Mdn:                        mdn,
 		TerminalId:                 "A001",
 		MakerId:                    6,
 		PacketVersion:              5,
@@ -161,17 +165,18 @@ func PostOnOffEvent(token string, eventType util.EventType, gpsData domain.GpsDa
 
 	if err != nil {
 		fmt.Println("On/Off 이벤트 전송 실패:", err)
+		util.AppendLog(fmt.Sprintf("❌ On/Off 이벤트 전송 실패: %v\n", err))
 	} else {
 		fmt.Println("On/Off 이벤트 전송 성공")
 	}
 }
 
-func PostGeofenceEvent(token string, gpsData domain.GpsData, eventVal int, totalDistance int64) {
+func PostGeofenceEvent(token string, gpsData domain.GpsData, eventVal int, totalDistance int64, mdn int64) {
 
 	loc, _ := time.LoadLocation("Asia/Seoul")
 
 	geofenceEventRequest := domain.GeofenceEventRequest{
-		Mdn:             1,
+		Mdn:             mdn,
 		TerminalId:      "A001",
 		MakerId:         6,
 		PacketVersion:   5,
@@ -188,5 +193,9 @@ func PostGeofenceEvent(token string, gpsData domain.GpsData, eventVal int, total
 		Sum:             totalDistance,
 	}
 
-	sender.SendGeofenceEvent(token, geofenceEventRequest)
+	err := sender.SendGeofenceEvent(token, geofenceEventRequest)
+	if err != nil {
+		fmt.Println("지오펜스 이벤트 전송 실패:", err)
+		util.AppendLog(fmt.Sprintf("❌ 지오펜스 이벤트 전송 실패: %v\n", err))
+	}
 }

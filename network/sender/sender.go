@@ -11,15 +11,17 @@ import (
 	"time"
 )
 
+var UseDeployURL = false
+
 var (
-	//baseURL = "https://api.rento.world"
-	baseURL_Adapter = "http://localhost:8081"
-	baseURL_Api     = "http://localhost:8080"
-	client          = &http.Client{Timeout: 10 * time.Second}
+	deployURL        = "https://api.rento.world"
+	localURL_Adapter = "http://localhost:8081"
+	localURL_Api     = "http://localhost:8080"
+	client           = &http.Client{Timeout: 10 * time.Second}
 )
 
 func GetToken(mdn int, firmware string) (string, error) {
-	url := baseURL_Api + "/api/devices/token"
+	url := getApiURL() + "/api/devices/token"
 	requestBody := domain.DeviceTokenRequest{
 		Mdn:         mdn,
 		Tid:         "A001",
@@ -63,7 +65,7 @@ func GetToken(mdn int, firmware string) (string, error) {
 }
 
 func SendCycleInfoEvent(event domain.CycleEvent, token string) error {
-	url := baseURL_Adapter + "/api/events/cycle-info"
+	url := getAdapterURL() + "/api/events/cycle-info"
 
 	jsonData, err := json.Marshal(event)
 	if err != nil {
@@ -94,7 +96,7 @@ func SendCycleInfoEvent(event domain.CycleEvent, token string) error {
 }
 
 func SendOnOffEvent(event domain.OnOffEvent, token string, eventType util.EventType) error {
-	url := baseURL_Adapter + "/api/events/on-off"
+	url := getAdapterURL() + "/api/events/on-off"
 
 	// Replace 'EventType' with the correct field name from domain.OnOffEvent, e.g., 'EventType'
 	if eventType == util.EventTypeOn {
@@ -132,7 +134,7 @@ func SendOnOffEvent(event domain.OnOffEvent, token string, eventType util.EventT
 }
 
 func GetControlInfo(token string) (*domain.ControlInfoResponse, error) {
-	url := baseURL_Api + "/api/devices/get-set-info"
+	url := getApiURL() + "/api/devices/get-set-info"
 
 	request := domain.ControlInfo{
 		Mdn:                   1,
@@ -152,7 +154,7 @@ func GetControlInfo(token string) (*domain.ControlInfoResponse, error) {
 }
 
 func SendGeofenceEvent(token string, request domain.GeofenceEventRequest) error {
-	url := baseURL_Adapter + "/api/events/geofences"
+	url := getAdapterURL() + "/api/events/geofences"
 
 	respBody, err := sendPostRequest(url, request, token)
 	if err != nil {
@@ -189,4 +191,18 @@ func sendPostRequest(url string, payload interface{}, token string) (respBody []
 	}
 
 	return nil, fmt.Errorf("server returned status: %s", resp.Status)
+}
+
+func getApiURL() string {
+	if UseDeployURL {
+		return deployURL
+	}
+	return localURL_Api
+}
+
+func getAdapterURL() string {
+	if UseDeployURL {
+		return deployURL
+	}
+	return localURL_Adapter
 }
