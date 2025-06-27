@@ -1,6 +1,7 @@
 package util
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -8,8 +9,35 @@ import (
 	_ "embed"
 )
 
-//go:embed data/99_course_trip.txt
 var CourseTripText string
+
+//go:embed data/busan.txt
+var busanText string
+
+//go:embed data/sejong.txt
+var sejongText string
+
+//go:embed data/dangsan.txt
+var dangsanText string
+
+//go:embed data/goyang.txt
+var goyangText string
+
+func SetCourseTripText(filename string) error {
+	switch filename {
+	case "busan.txt":
+		CourseTripText = busanText
+	case "sejong.txt":
+		CourseTripText = sejongText
+	case "dangsan.txt":
+		CourseTripText = dangsanText
+	case "goyang.txt":
+		CourseTripText = goyangText
+	default:
+		return fmt.Errorf("unknown file: %s", filename)
+	}
+	return nil
+}
 
 func ReadFileLines() ([]string, error) {
 	lines := strings.Split(CourseTripText, "\n")

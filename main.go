@@ -16,12 +16,15 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-// signal that all goroutines have finished
-var doneAll = make(chan struct{}, 1)
-
 func main() {
 	util.StopSignal = make(chan struct{})
 	guiApp := app.NewWithID("rento.emulator")
+
+	courseSelector := widget.NewRadioGroup([]string{"busan.txt", "sejong.txt", "dangsan.txt", "goyang.txt"}, func(value string) {
+		util.SetCourseTripText(value)
+	})
+	courseSelector.SetSelected("busan.txt")
+
 	statusLabel := widget.NewLabel("")
 	win := guiApp.NewWindow("Rento Emulator Controller")
 	win.Resize(fyne.NewSize(300, 200))
@@ -37,13 +40,16 @@ func main() {
 		}
 	}
 
-	cycleOptions := []string{}
-	for i := 5; i <= 60; i += 5 {
-		cycleOptions = append(cycleOptions, strconv.Itoa(i))
-	}
-
-	cycleCountEntry := widget.NewSelectEntry(cycleOptions)
+	cycleCountEntry := widget.NewEntry()
 	cycleCountEntry.SetText("5")
+	cycleCountEntry.SetPlaceHolder("주행 개수 (5–60)")
+	cycleCountEntry.OnChanged = func(s string) {
+		if val, err := strconv.Atoi(s); err != nil || val < 5 {
+			cycleCountEntry.SetText("5")
+		} else if val > 60 {
+			cycleCountEntry.SetText("60")
+		}
+	}
 
 	maxReadValueEntry := widget.NewEntry()
 	maxReadValueEntry.SetText("1000")
@@ -99,11 +105,7 @@ func main() {
 		util.ThreadCount = threadCount
 		util.CycleCount = cycleCount
 
-		go func() {
-			runEmulator()
-			// notify completion
-			doneAll <- struct{}{}
-		}()
+		go runEmulator()
 	})
 
 	stopButton := widget.NewButton("Stop Emulator", func() {
@@ -127,22 +129,12 @@ func main() {
 			widget.NewLabel("주행 거리: (1–10000)"),
 			container.NewMax(maxReadValueEntry),
 		),
+		courseSelector,
 		urlToggle,
 		runButton,
 		stopButton,
 		statusLabel,
 	))
-
-	// monitor completion signal and update UI on main thread
-	go func() {
-		for range doneAll {
-			statusLabel.SetText("● 모든 쓰레드 종료됨")
-			statusLabel.TextStyle = fyne.TextStyle{Bold: true}
-			statusLabel.Refresh()
-			threadCountEntry.Enable()
-			cycleCountEntry.Enable()
-		}
-	}()
 
 	win.ShowAndRun()
 }
