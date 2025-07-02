@@ -23,6 +23,34 @@ var dangsanText string
 //go:embed data/goyang.txt
 var goyangText string
 
+// round‑robin state
+var (
+	dataFiles   = []string{busanText, sejongText, dangsanText, goyangText}
+	currentFile = 0
+)
+
+func ReadFileLines(filename string) ([]string, error) {
+	var texts string
+	switch filename {
+	case "busan.txt":
+		texts = busanText
+	case "sejong.txt":
+		texts = sejongText
+	case "dangsan.txt":
+		texts = dangsanText
+	case "goyang.txt":
+		texts = goyangText
+	default:
+		return nil, fmt.Errorf("unknown file: %s", filename)
+	}
+	lines := strings.Split(texts, "\n")
+	if len(lines) > MaxReadValue {
+		return lines[:MaxReadValue], nil
+	}
+	return lines, nil
+}
+
+// SetCourseTripText selects which embedded data to read by filename
 func SetCourseTripText(filename string) error {
 	switch filename {
 	case "busan.txt":
@@ -37,14 +65,6 @@ func SetCourseTripText(filename string) error {
 		return fmt.Errorf("unknown file: %s", filename)
 	}
 	return nil
-}
-
-func ReadFileLines() ([]string, error) {
-	lines := strings.Split(CourseTripText, "\n")
-	if len(lines) > MaxReadValue {
-		return lines[:MaxReadValue], nil
-	}
-	return lines, nil
 }
 
 func GetProjectRelativePath(relPath string) string {

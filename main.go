@@ -16,14 +16,12 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
+// list of data files to process in round‑robin
+var dataFiles = []string{"busan.txt", "sejong.txt", "dangsan.txt", "goyang.txt"}
+
 func main() {
 	util.StopSignal = make(chan struct{})
 	guiApp := app.NewWithID("rento.emulator")
-
-	courseSelector := widget.NewRadioGroup([]string{"busan.txt", "sejong.txt", "dangsan.txt", "goyang.txt"}, func(value string) {
-		util.SetCourseTripText(value)
-	})
-	courseSelector.SetSelected("busan.txt")
 
 	statusLabel := widget.NewLabel("")
 	win := guiApp.NewWindow("Rento Emulator Controller")
@@ -129,7 +127,6 @@ func main() {
 			widget.NewLabel("주행 거리: (1–10000)"),
 			container.NewMax(maxReadValueEntry),
 		),
-		courseSelector,
 		urlToggle,
 		runButton,
 		stopButton,
@@ -148,6 +145,14 @@ func runEmulator() {
 	for i := 0; i < util.ThreadCount; i++ {
 		wg.Add(1)
 		go func(index int) {
+			// pick which file to read this goroutine
+			filename := dataFiles[index%len(dataFiles)]
+			if err := util.SetCourseTripText(filename); err != nil {
+				fmt.Printf("[#%d] 파일 선택 오류: %v\n", index+1, err)
+				wg.Done()
+				return
+			}
+
 			defer wg.Done()
 
 			var err error
@@ -160,7 +165,7 @@ func runEmulator() {
 			msg := fmt.Sprintf("[#%d] 토큰: %s\n", index+1, token)
 			fmt.Print(msg)
 
-			lines, err := util.ReadFileLines()
+			lines, err := util.ReadFileLines(filename)
 			if err != nil {
 				msg := fmt.Sprintf("[#%d] 파일 읽기 오류: %v\n", index+1, err)
 				fmt.Print(msg)
