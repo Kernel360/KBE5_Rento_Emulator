@@ -14,11 +14,11 @@ import (
 var UseDeployURL = false
 
 var (
-	deployURL_api     = "https://api.rento.world"
-	deployURL_adapter = "https://adapter.rento.world"
-	localURL_Adapter  = "http://localhost:8081"
-	localURL_Api      = "http://localhost:8080"
-	client            = &http.Client{Timeout: 10 * time.Second}
+	deployURL_api    = "https://api.rento.world"
+	deployURL_pub    = "https://pub.rento.world"
+	localURL_Adapter = "http://localhost:8081"
+	localURL_Api     = "http://localhost:8080"
+	client           = &http.Client{Timeout: 10 * time.Second}
 )
 
 func GetToken(mdn int, firmware string) (string, error) {
@@ -203,7 +203,7 @@ func getApiURL() string {
 
 func getAdapterURL() string {
 	if UseDeployURL {
-		return deployURL_adapter
+		return deployURL_pub
 	}
 	return localURL_Adapter
 }

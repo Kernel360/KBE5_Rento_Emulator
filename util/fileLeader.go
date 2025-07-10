@@ -17,15 +17,15 @@ var busanText string
 //go:embed data/sejong.txt
 var sejongText string
 
-//go:embed data/dangsan.txt
-var dangsanText string
+//go:embed data/yeongdeungpo.txt
+var yeongdeungpo string
 
 //go:embed data/goyang.txt
 var goyangText string
 
 // round‑robin state
 var (
-	dataFiles   = []string{busanText, sejongText, dangsanText, goyangText}
+	dataFiles   = []string{busanText, sejongText, yeongdeungpo, goyangText}
 	currentFile = 0
 )
 
@@ -36,8 +36,8 @@ func ReadFileLines(filename string) ([]string, error) {
 		texts = busanText
 	case "sejong.txt":
 		texts = sejongText
-	case "dangsan.txt":
-		texts = dangsanText
+	case "yeongdeungpo.txt":
+		texts = yeongdeungpo
 	case "goyang.txt":
 		texts = goyangText
 	default:
@@ -57,8 +57,8 @@ func SetCourseTripText(filename string) error {
 		CourseTripText = busanText
 	case "sejong.txt":
 		CourseTripText = sejongText
-	case "dangsan.txt":
-		CourseTripText = dangsanText
+	case "yeongdeungpo.txt":
+		CourseTripText = yeongdeungpo
 	case "goyang.txt":
 		CourseTripText = goyangText
 	default:
