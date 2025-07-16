@@ -142,7 +142,7 @@ func runEmulator() {
 	var wg sync.WaitGroup
 
 	fmt.Println("에뮬레이터 시작 - 차량 대수:", util.ThreadCount, "주행 개수:", util.CycleCount)
-	var tokenList []string = make([]string, 0, util.ThreadCount)
+	tokenList := make([]string, util.ThreadCount)
 	for i := 0; i < util.ThreadCount; i++ {
 		wg.Add(1)
 		go func(index int) {
@@ -158,10 +158,9 @@ func runEmulator() {
 
 			var err error
 			token, err = sender.GetToken(i+1, "v1.0.0")
-			tokenList = append(tokenList, token)
+			tokenList[index] = token
 			if err != nil {
-				msg := fmt.Sprintf("토큰:", tokenList[index])
-				fmt.Print(msg)
+				fmt.Print(err)
 				return
 			}
 			msg := fmt.Sprintf("[#%d] 토큰: %s\n", index+1, tokenList[index])
