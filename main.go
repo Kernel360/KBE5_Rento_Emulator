@@ -17,7 +17,7 @@ import (
 )
 
 // list of data files to process in round‑robin
-var dataFiles = []string{"busan.txt", "sejong.txt", "yeongdeungpo.txt", "goyang.txt"}
+var dataFiles = []string{"goyang.txt", "busan.txt", "sejong.txt", "yeongdeungpo.txt"}
 
 func main() {
 	util.StopSignal = make(chan struct{})
