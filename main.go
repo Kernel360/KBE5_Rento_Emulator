@@ -142,6 +142,7 @@ func runEmulator() {
 	var wg sync.WaitGroup
 
 	fmt.Println("에뮬레이터 시작 - 차량 대수:", util.ThreadCount, "주행 개수:", util.CycleCount)
+	var tokenList []string = make([]string, 0, util.ThreadCount)
 	for i := 0; i < util.ThreadCount; i++ {
 		wg.Add(1)
 		go func(index int) {
@@ -156,13 +157,14 @@ func runEmulator() {
 			defer wg.Done()
 
 			var err error
-			token, err = sender.GetToken(1, "v1.0.0")
+			token, err = sender.GetToken(i+1, "v1.0.0")
+			tokenList = append(tokenList, token)
 			if err != nil {
-				msg := fmt.Sprintf("[#%d] 토큰 요청 실패: %v\n", index+1, err)
+				msg := fmt.Sprintf("토큰:", tokenList[index])
 				fmt.Print(msg)
 				return
 			}
-			msg := fmt.Sprintf("[#%d] 토큰: %s\n", index+1, token)
+			msg := fmt.Sprintf("[#%d] 토큰: %s\n", index+1, tokenList[index])
 			fmt.Print(msg)
 
 			lines, err := util.ReadFileLines(filename)
@@ -179,7 +181,7 @@ func runEmulator() {
 				return
 			}
 
-			contrlInfoResponse, err := sender.GetControlInfo(token)
+			contrlInfoResponse, err := sender.GetControlInfo(tokenList[index])
 			if err != nil {
 				msg := fmt.Sprintf("[#%d] 제어 정보 요청 실패: %v\n", index+1, err)
 				fmt.Print(msg)
@@ -201,13 +203,13 @@ func runEmulator() {
 			go func() {
 				<-stopSignal
 				ticker.Stop()
-				service.PostOnOffEvent(token, util.EventTypeOff, lastGpsData, 0, int64(index+1))
+				service.PostOnOffEvent(tokenList[index], util.EventTypeOff, lastGpsData, 0, int64(index+1))
 			}()
 			defer ticker.Stop()
 
-			service.PostOnOffEvent(token, util.EventTypeOn, gposData, 0, int64(index+1))
+			service.PostOnOffEvent(tokenList[index], util.EventTypeOn, gposData, 0, int64(index+1))
 
-			service.PostCycleEvent(lines, token, ticker, geofenceInfo, lastGpsData, int64(index+1))
+			service.PostCycleEvent(lines, tokenList[index], ticker, geofenceInfo, lastGpsData, int64(index+1))
 		}(i)
 	}
 

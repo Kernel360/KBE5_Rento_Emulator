@@ -78,6 +78,8 @@ func SendCycleInfoEvent(event domain.CycleEvent, token string) error {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
+	fmt.Println("Sending Cycle Info Event to token:", token)
+
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("X-Device-Token", token)
@@ -115,6 +117,7 @@ func SendOnOffEvent(event domain.OnOffEvent, token string, eventType util.EventT
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
+	fmt.Println("Sending Cycle Info Event to token:", token)
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+token)
